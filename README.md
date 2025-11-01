@@ -1,6 +1,6 @@
-# Nod.AI
-
 <div align="center">
+
+<h1> Nod.AI </h1>
 
 **Built for Medicine. Run by You.**
 
@@ -10,3 +10,4 @@ Medically focused AI on your computer - private, fast, and simple.
 [![Version](https://img.shields.io/badge/Version-0.1.0--beta.1-orange.svg)](https://github.com/yourusername/nod-ai/releases)
 
 </div>
+
