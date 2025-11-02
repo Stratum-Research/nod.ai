@@ -54,28 +54,22 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
-
-      - name: Install build dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install cmake || echo "CMake might already be installed"
-
-      - name: Install build dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          # Windows runners typically have Visual Studio Build Tools with CMake
-          # If CMake is not available, we can install it via chocolatey
-          cmake --version || echo "CMake check failed, may need manual installation"
+          sudo apt-get install -y build-essential libopenblas-dev
 
       - name: Install Python dependencies
         working-directory: ./backend
         shell: bash
         env:
-          CMAKE_ARGS: ${{ runner.os == 'macOS' && '-DLLAMA_METAL=ON' || '' }}
+          # Disable Metal for macOS (use CPU only) - set to "ON" if you need GPU acceleration
+          CMAKE_ARGS: "-DLLAMA_METAL=off"
           FORCE_CMAKE: "1"
         run: |
-          python -m pip install --upgrade pip setuptools wheel
+          # Upgrade pip and install cmake via pip (most reliable across platforms)
+          python -m pip install --upgrade pip setuptools wheel cmake
+          # Try to install llama-cpp-python with pre-built wheels first
+          # Use || true to allow build to continue if it fails (remove if llama-cpp-python is required)
+          pip install --upgrade "llama-cpp-python" --prefer-binary || true
+          # Install all other dependencies (will build llama-cpp-python from source if needed)
           pip install -r requirements.txt
 
       - name: Build application
