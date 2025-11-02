@@ -29,6 +29,7 @@ jobs:
 
       - name: Extract version from tag
         id: tag_version
+        shell: bash
         run: |
           # Extract version from tag (e.g., v1.0.0 -> 1.0.0)
           VERSION=${GITHUB_REF#refs/tags/v}
