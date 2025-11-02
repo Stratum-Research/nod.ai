@@ -17,7 +17,10 @@
   ],
   mac: {
     target: ["dmg"],
-    artifactName: "${productName}-Mac-${version}-Installer.${ext}",
+    artifactName: "${productName}-Mac-${version}-${arch}-Installer.${ext}",
+    // Build for both architectures - electron-builder will use the runner's architecture
+    // For universal binaries, use: arch: ["x64", "arm64"]
+    // For now, we build separately for each arch in CI
   },
   win: {
     target: [

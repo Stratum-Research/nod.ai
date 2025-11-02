@@ -9,8 +9,21 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            arch: arm64
+            label: Mac-ARM64
+          - os: macos-latest
+            arch: x64
+            label: Mac-Intel
+          - os: windows-latest
+            arch: x64
+            label: Windows
+          - os: ubuntu-latest
+            arch: x64
+            label: Linux
 
     steps:
       - name: Checkout code
@@ -60,28 +73,52 @@ jobs:
         working-directory: ./backend
         shell: bash
         env:
-          # Disable Metal for macOS (use CPU only) - set to "ON" if you need GPU acceleration
-          CMAKE_ARGS: "-DLLAMA_METAL=off"
+          # Configure CMAKE_ARGS based on macOS architecture
+          CMAKE_ARGS: ${{ runner.os == 'macOS' && matrix.arch == 'arm64' && '-DLLAMA_METAL=on' || '-DLLAMA_METAL=off' }}
           FORCE_CMAKE: "1"
         run: |
-          # Upgrade pip and install cmake via pip (most reliable across platforms)
-          python -m pip install --upgrade pip setuptools wheel cmake
-          # Try to install llama-cpp-python with pre-built wheels first
-          # Use || true to allow build to continue if it fails (remove if llama-cpp-python is required)
-          pip install --upgrade "llama-cpp-python" --prefer-binary || true
-          # Install all other dependencies (will build llama-cpp-python from source if needed)
-          pip install -r requirements.txt
+          # For Intel macOS builds, we need to run Python in Rosetta 2 mode
+          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x64" ]]; then
+            echo "Installing Python dependencies for Intel (x64) architecture using Rosetta 2..."
+            # Use arch -x86_64 to run Python in Intel mode for x64 builds
+            # Find the Python executable path
+            PYTHON_X64=$(which python3 || which python)
+            arch -x86_64 "$PYTHON_X64" -m pip install --upgrade pip setuptools wheel cmake
+            arch -x86_64 "$PYTHON_X64" -m pip install --upgrade "llama-cpp-python" --prefer-binary || true
+            arch -x86_64 "$PYTHON_X64" -m pip install -r requirements.txt
+          else
+            echo "Installing Python dependencies for native architecture..."
+            python -m pip install --upgrade pip setuptools wheel cmake
+            pip install --upgrade "llama-cpp-python" --prefer-binary || true
+            pip install -r requirements.txt
+          fi
 
       - name: Build application
         working-directory: ./frontend
-        run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # On macOS, configure electron-builder for the target architecture
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            if [[ "${{ matrix.arch }}" == "x64" ]]; then
+              # Build for Intel using Rosetta 2 emulation
+              # Note: Python backend will be built for x86_64 architecture
+              echo "Building for Intel (x64) on macOS using Rosetta 2..."
+              # Use arch -x86_64 to run npm in Intel mode
+              arch -x86_64 npm run build
+            else
+              # Build natively for Apple Silicon (arm64)
+              echo "Building for Apple Silicon (arm64) on macOS..."
+              npm run build
+            fi
+          else
+            npm run build
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-build
+          name: ${{ matrix.label }}-build
           path: frontend/release/**/*
           retention-days: 30
           if-no-files-found: error
