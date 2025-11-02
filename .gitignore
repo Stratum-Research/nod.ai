@@ -52,7 +52,7 @@ lerna-debug.log*
 # Frontend build
 frontend/dist/
 frontend/dist-ssr/
-frontend/release/
+# frontend/release/
 frontend/dist-electron/
 
 # Editor
