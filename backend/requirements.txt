@@ -51,7 +51,7 @@ langgraph-prebuilt==1.0.2
 langgraph-sdk==0.2.9
 langsmith==0.4.38
 lazy_imports==1.0.1
-llama-cpp-python>=0.2.0
+llama-cpp-python==0.2.87
 lz4==4.4.4
 macholib==1.16.3
 markdown-it-py==4.0.0
