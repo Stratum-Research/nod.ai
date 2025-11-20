@@ -2,6 +2,8 @@
   "name": "nod-ai",
   "private": true,
   "version": "0.1.0-beta.1",
+  "description": "Nod.AI - AI-powered application",
+  "author": "Nod.AI",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
@@ -9,9 +11,11 @@
     "dev-backend": "node scripts/start-backend.js",
     "test-backend": "node scripts/test-backend.js",
     "build": "npm run build-frontend && npm run build-backend && npm run build-electron",
-    "build-electron": "electron-builder",
-    "build-backend": "cd ../backend && pyinstaller -y --clean main.spec && cd ..",
+    "prebuild-electron": "node scripts/package-backend.js",
+    "build-electron": "electron-builder --config electron-builder.config.js",
+    "build-backend": "cd ../backend && pyinstaller -y --clean main.spec && cd ../frontend && node scripts/package-backend.js",
     "build-frontend": "tsc && vite build",
+    "setup-macos": "node setup-macos-signing.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -30,12 +34,14 @@
     "react-router-dom": "7.5.2",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.2.0",
-    "tailwindcss": "^4.1.4"
+    "tailwindcss": "^4.1.4",
+    "tar": "^6.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
+    "@types/tar": "^6.1.13",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "@vitejs/plugin-react": "^4.2.1",

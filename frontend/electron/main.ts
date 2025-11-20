@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import tar from "tar";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,54 +21,116 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null;
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
+let backendExtractPromise: Promise<string> | null = null;
 
-// Get backend paths - works for both dev and production
-function getBackendPaths() {
-  const isWindows = process.platform === "win32";
-  
-  // In dev: __dirname is dist-electron/, so ../../backend gets us to root/backend
-  // In production: backend is in extraResources, accessible via process.resourcesPath
-  let backendDir: string;
-  
-  if (VITE_DEV_SERVER_URL) {
-    // Development: use relative path from dist-electron to backend
-    backendDir = path.join(__dirname, "../../backend");
-  } else {
-    // Production: backend is in extraResources (outside asar)
-    backendDir = process.resourcesPath
-      ? path.join(process.resourcesPath, "backend")
-      : path.join(path.dirname(process.execPath), "..", "resources", "backend");
+type BackendCommand = {
+  command: string;
+  args: string[];
+  cwd: string;
+  description: string;
+};
+
+const BACKEND_ARCHIVE_NAME = "backend.tar.gz";
+const BACKEND_RUNTIME_DIR = "backend-runtime";
+const BACKEND_VERSION_FILE = ".version";
+
+async function ensureProductionBackend(): Promise<string> {
+  if (backendExtractPromise) {
+    return backendExtractPromise;
   }
-  
+
+  backendExtractPromise = (async () => {
+    const resourcesDir = process.resourcesPath
+      ? process.resourcesPath
+      : path.join(path.dirname(process.execPath), "..", "resources");
+    const archivePath = path.join(resourcesDir, "backend", BACKEND_ARCHIVE_NAME);
+    if (!fs.existsSync(archivePath)) {
+      throw new Error(`Backend archive missing at ${archivePath}`);
+    }
+
+    const runtimeDir = path.join(app.getPath("userData"), BACKEND_RUNTIME_DIR);
+    const versionFile = path.join(runtimeDir, BACKEND_VERSION_FILE);
+    const currentVersion = app.getVersion();
+
+    let needsExtract = true;
+    if (fs.existsSync(path.join(runtimeDir, "venv"))) {
+      if (fs.existsSync(versionFile)) {
+        const existingVersion = fs.readFileSync(versionFile, "utf-8").trim();
+        needsExtract = existingVersion !== currentVersion;
+      }
+    }
+
+    if (needsExtract) {
+      console.log("⬇️  Extracting backend resources...");
+      await fs.promises.rm(runtimeDir, { recursive: true, force: true });
+      await fs.promises.mkdir(runtimeDir, { recursive: true });
+      await tar.x({
+        file: archivePath,
+        cwd: runtimeDir,
+      });
+      await fs.promises.writeFile(versionFile, currentVersion, "utf-8");
+      console.log("✅ Backend extraction complete");
+    }
+
+    return runtimeDir;
+  })();
+
+  backendExtractPromise.catch(() => {
+    backendExtractPromise = null;
+  });
+
+  return backendExtractPromise;
+}
+
+async function resolveBackendCommand(): Promise<BackendCommand> {
+  const isWindows = process.platform === "win32";
+
+  if (VITE_DEV_SERVER_URL) {
+    const backendDir = path.join(__dirname, "../../backend");
+    const python = isWindows
+      ? path.join(backendDir, "venv", "Scripts", "python.exe")
+      : path.join(backendDir, "venv", "bin", "python");
+    return {
+      command: python,
+      args: ["-m", "uvicorn", "app.app:app", "--host", "127.0.0.1", "--port", "8000"],
+      cwd: backendDir,
+      description: "development venv",
+    };
+  }
+
+  const runtimeDir = await ensureProductionBackend();
   const python = isWindows
-    ? path.join(backendDir, "venv", "Scripts", "python.exe")
-    : path.join(backendDir, "venv", "bin", "python");
-  const backend = path.join(backendDir, "app", "main.py");
-  
-  return { python, backend, cwd: backendDir };
+    ? path.join(runtimeDir, "venv", "Scripts", "python.exe")
+    : path.join(runtimeDir, "venv", "bin", "python");
+
+  if (!fs.existsSync(python)) {
+    throw new Error(`Python runtime not found at ${python}`);
+  }
+
+  return {
+    command: python,
+    args: ["-m", "uvicorn", "app.app:app", "--host", "127.0.0.1", "--port", "8000"],
+    cwd: runtimeDir,
+    description: "packaged backend runtime",
+  };
 }
 
 // Spawn backend process when app starts
-function startBackend() {
+async function startBackend() {
   if (backendProcess) {
     return; // Already started
   }
 
   try {
-    const { python, cwd } = getBackendPaths();
+    const backendCommand = await resolveBackendCommand();
 
-    // Check if Python executable exists
-    if (!fs.existsSync(python)) {
-      console.error(`Failed to start backend: Python not found at ${python}`);
-      return;
-    }
+    console.log(
+      `Starting backend (${backendCommand.description}): ${backendCommand.command} ${backendCommand.args.join(" ")}`
+    );
+    console.log(`Working directory: ${backendCommand.cwd}`);
 
-    console.log(`Starting backend: ${python} -m uvicorn app.app:app`);
-    console.log(`Working directory: ${cwd}`);
-
-    // Spawn backend using uvicorn (same as dev script)
-    backendProcess = spawn(python, ["-m", "uvicorn", "app.app:app", "--host", "127.0.0.1", "--port", "8000"], {
-      cwd,
+    backendProcess = spawn(backendCommand.command, backendCommand.args, {
+      cwd: backendCommand.cwd,
       stdio: "inherit",
     }) as ChildProcessWithoutNullStreams;
 
@@ -88,18 +151,27 @@ function startBackend() {
 }
 
 function createWindow() {
+  // Get icon path - use PNG for Electron, fallback to SVG if PNG doesn't exist
+  const iconPath = path.join(process.env.VITE_PUBLIC, "icon.png");
+  const icon = fs.existsSync(iconPath) ? iconPath : path.join(process.env.VITE_PUBLIC, "logo.svg");
+
   // Create browser window
   win = new BrowserWindow({
     width: 1000,
     height: 700,
     resizable: true,
-    icon: path.join(process.env.VITE_PUBLIC, "electron.svg"),
+    icon: icon,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Set dock icon on macOS (for the app icon in the dock)
+  if (process.platform === "darwin" && fs.existsSync(iconPath)) {
+    app.dock.setIcon(iconPath);
+  }
 
   // Load renderer
   if (VITE_DEV_SERVER_URL) {
@@ -157,9 +229,9 @@ app.on("activate", () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Start backend process when app starts
-  startBackend();
+  await startBackend();
   // Then create the window
   createWindow();
 });

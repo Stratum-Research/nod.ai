@@ -35,3 +35,7 @@ __pycache__/
 # API keys and settings
 backend/app/settings.json
 
+# Environment variables (Apple Developer credentials)
+.env
+.env.local
+

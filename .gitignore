@@ -33,6 +33,7 @@ venv.bak/
 backend/venv/
 backend/app/manager/myenv/
 backend/app/manager/test_venv/
+backend/backend.tar.gz
 
 # Build artifacts
 backend/build/
@@ -71,6 +72,7 @@ frontend/dist-electron/
 
 # API keys and settings
 backend/app/settings.json
+secrets/ 
 
 # Logs
 *.log
