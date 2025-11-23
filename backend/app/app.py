@@ -29,6 +29,12 @@ def _startup():
         print(f"⚠️  OpenSource provider not ready: {e}")
 
 
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "ok"}
+
+
 app.include_router(chats.router)
 app.include_router(models.router)  # New unified models endpoint
 app.include_router(opensource.router)  # OpenSource model management
