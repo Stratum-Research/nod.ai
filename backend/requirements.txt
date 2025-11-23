@@ -11,18 +11,21 @@ bitsandbytes==0.42.0
 certifi==2025.10.5
 charset-normalizer==3.4.4
 chroma-haystack==0.17.0
+chromadb==0.3.23
 click==8.3.0
 clickhouse-connect==0.9.1
 dataclasses-json==0.6.7
+diskcache==5.6.3
 distro==1.9.0
 docstring_parser==0.17.0
-duckdb==1.4.1
+duckdb==1.4.2
 fastapi==0.120.4
 filelock==3.20.0
 filetype==1.2.0
 frozenlist==1.8.0
 fsspec==2025.10.0
 h11==0.16.0
+haystack-ai==2.20.0
 haystack-experimental==0.14.1
 hf-xet==1.2.0
 hnswlib==0.8.0
@@ -51,7 +54,7 @@ langgraph-prebuilt==1.0.2
 langgraph-sdk==0.2.9
 langsmith==0.4.38
 lazy_imports==1.0.1
-llama-cpp-python==0.2.87
+llama_cpp_python==0.2.87
 lz4==4.4.4
 macholib==1.16.3
 markdown-it-py==4.0.0
@@ -119,3 +122,5 @@ websockets==15.0.1
 xxhash==3.6.0
 yarl==1.22.0
 zstandard==0.25.0
+pytest==8.3.4
+pytest-asyncio==0.24.0

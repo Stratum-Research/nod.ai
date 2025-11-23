@@ -4,7 +4,7 @@ from typing import Optional
 from urllib.parse import unquote
 import shutil
 from pathlib import Path
-from app.providers.registry import get_registry
+from app.providers.opensource import get_opensource_provider
 
 router = APIRouter(prefix="/opensource", tags=["opensource"])
 
@@ -33,17 +33,16 @@ async def get_disk_space():
 @router.get("/models/{model_id:path}/status")
 async def get_model_status(model_id: str):
     """Get download status for an OpenSource model."""
-    registry = get_registry()
-    provider = registry.get("opensource")
-    
-    if not provider:
-        raise HTTPException(status_code=503, detail="OpenSource provider not available")
+    try:
+        provider = get_opensource_provider()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="OpenSource provider not available") from exc
     
     # URL decode the model_id (handles encoded slashes like %2F)
     model_id = unquote(model_id)
     
     # Parse model_id (format: opensource:repo_id)
-    model_info = provider._get_model_info(model_id)
+    model_info = provider.get_model_info(model_id)
     
     if not model_info:
         available = [f"opensource:{m['repo_id']}" for m in provider.registry]
@@ -68,17 +67,16 @@ async def get_model_status(model_id: str):
 @router.post("/models/{model_id:path}/download")
 async def download_model(model_id: str):
     """Download/prepare an OpenSource model."""
-    registry = get_registry()
-    provider = registry.get("opensource")
-    
-    if not provider:
-        raise HTTPException(status_code=503, detail="OpenSource provider not available")
+    try:
+        provider = get_opensource_provider()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="OpenSource provider not available") from exc
     
     # URL decode the model_id (handles encoded slashes like %2F)
     model_id = unquote(model_id)
     
     # Parse model_id (format: opensource:repo_id)
-    model_info = provider._get_model_info(model_id)
+    model_info = provider.get_model_info(model_id)
     
     if not model_info:
         available = [f"opensource:{m['repo_id']}" for m in provider.registry]
@@ -104,17 +102,16 @@ async def download_model(model_id: str):
 @router.delete("/models/{model_id:path}")
 async def delete_model(model_id: str):
     """Delete a downloaded OpenSource model."""
-    registry = get_registry()
-    provider = registry.get("opensource")
-    
-    if not provider:
-        raise HTTPException(status_code=503, detail="OpenSource provider not available")
+    try:
+        provider = get_opensource_provider()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="OpenSource provider not available") from exc
     
     # URL decode the model_id (handles encoded slashes like %2F)
     model_id = unquote(model_id)
     
     # Parse model_id (format: opensource:repo_id)
-    model_info = provider._get_model_info(model_id)
+    model_info = provider.get_model_info(model_id)
     
     if not model_info:
         available = [f"opensource:{m['repo_id']}" for m in provider.registry]
