@@ -124,3 +124,4 @@
 # zstandard==0.25.0
 # pytest==8.3.4
 # pytest-asyncio==0.24.0
+appdirs==1.4.4
